@@ -27,22 +27,28 @@ const val TAG = "MapsActivity"
 class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private lateinit var mMap: GoogleMap
+    var playerPower = 0.0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_maps)
         val mapFragment = supportFragmentManager
-                .findFragmentById(R.id.map) as SupportMapFragment
+            .findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
         getUserLocation()
+        loadPockeMon()
     }
 
-    fun checkPermission() {
+    private fun checkPermission() {
         if (Build.VERSION.SDK_INT >= 23 && (ActivityCompat
-                        .checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
-                        != PackageManager.PERMISSION_GRANTED)) {
-            requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION), ACCESS_LOCATION_REQUEST_CODE)
+                .checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
+                    != PackageManager.PERMISSION_GRANTED)
+        ) {
+            requestPermissions(
+                arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),
+                ACCESS_LOCATION_REQUEST_CODE
+            )
             return
         }
 
@@ -55,17 +61,27 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
         checkPermission()
-        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 3, 3f, locationListner)
+        locationManager.requestLocationUpdates(
+            LocationManager.GPS_PROVIDER,
+            3000,
+            3f,
+            locationListner
+        )
 
-        var locationThread = LocationThread()
+        val locationThread = LocationThread()
         locationThread.start()
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
         when (requestCode) {
             ACCESS_LOCATION_REQUEST_CODE -> {
                 if (grantResults[0] != PackageManager.PERMISSION_GRANTED) {
-                    Toast.makeText(this, "You didn't grant the permission.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "You didn't grant the permission.", Toast.LENGTH_SHORT)
+                        .show()
                 }
             }
         }
@@ -75,8 +91,6 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
-
-
     }
 
     var assignedLocation: Location? = null
@@ -100,24 +114,97 @@ class MapsActivity : AppCompatActivity(), OnMapReadyCallback {
         override fun run() {
             while (true) {
                 try {
+
                     runOnUiThread {
-                        val sydney = LatLng(assignedLocation!!.latitude, assignedLocation!!.longitude)
+                        mMap.clear()
+                        val userLocation =
+                            LatLng(assignedLocation!!.latitude, assignedLocation!!.longitude)
                         mMap.addMarker(
-                                MarkerOptions()
-                                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.mario))
-                                        .position(sydney)
-                                        .title("Me")
-                                        .snippet(" here is my location")
+                            MarkerOptions()
+                                .icon(BitmapDescriptorFactory.fromResource(R.drawable.mario))
+                                .position(userLocation)
+                                .title("Me")
+                                .snippet(" here is my location")
                         )
-                        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(sydney, 12f))
+                        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(userLocation, 14f))
+
+                        for ((index, pockemon) in listOfPockeMon.withIndex()) {
+                            if (pockemon.isCatch == false) {
+                                val pockemonLocation =
+                                    LatLng(
+                                        pockemon.latitude,
+                                        pockemon.longtitude,
+                                    )
+                                mMap.addMarker(
+                                    MarkerOptions()
+                                        .icon(BitmapDescriptorFactory.fromResource(pockemon.imageResource))
+                                        .position(pockemonLocation)
+                                        .title(pockemon.name)
+                                        .snippet(pockemon.description)
+                                )
+
+                            }
+                            if (assignedLocation!!.distanceTo(
+                                    pockemon.location
+                                ) < 10f
+                            ) {
+                                pockemon.isCatch = true
+                                playerPower += pockemon.power
+                                listOfPockeMon[index] = pockemon
+                                Toast.makeText(
+                                    this@MapsActivity,
+                                    "Your current power is $playerPower",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+
+                        }
+
                     }
 
-                    sleep(1000)
+                    sleep(100)
 
                 } catch (e: Exception) {
                     Log.e(TAG, "run: $e")
                 }
             }
         }
+    }
+
+    var listOfPockeMon = ArrayList<PockeMon>()
+
+    fun loadPockeMon() {
+
+        val bulbasaur = PockeMon(
+            "Bulbasaur",
+            "small, squat amphibian and plant Pokémon",
+            R.drawable.bulbasaur,
+            20.0,
+            22.3247,
+            91.8114,
+        )
+
+
+        val charmander = PockeMon(
+            "Charmander",
+            "small, bipedal lizard-like Pokémon native to Kanto.",
+            R.drawable.charmander,
+            25.0,
+            22.4317,
+            91.7455,
+        )
+
+        var squirtle = PockeMon(
+            "Squirtle",
+            "half squirrel, half turtle.",
+            R.drawable.squirtle,
+            50.0,
+            22.4345,
+            91.8182,
+        )
+
+        listOfPockeMon.add(bulbasaur)
+        listOfPockeMon.add(charmander)
+        listOfPockeMon.add(squirtle)
     }
 }
